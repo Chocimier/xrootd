@@ -37,6 +37,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/uio.h>
+#if defined(__linux__) && !defined(_IO_ERR_SEEN)
+#include <stdio_ext.h>
+#endif
 
 #include "XrdSys/XrdSysHeaders.hh"
 #include "XrdPosix/XrdPosixLinkage.hh"
@@ -311,8 +314,12 @@ size_t XrdPosix_Fread(void *ptr, size_t size, size_t nitems, FILE *stream)
         if (bytes > 0 && size) rc = bytes/size;
 #ifndef SUNX86
 #if defined(__linux__) || defined(__GNU__) || (defined(__FreeBSD_kernel__) && defined(__GLIBC__))
+#ifdef _IO_ERR_SEEN
    else if (bytes < 0) stream->_flags |= _IO_ERR_SEEN;
    else                stream->_flags |= _IO_EOF_SEEN;
+#else
+   else if (bytes < 0) __fseterr(stream);
+#endif
 #elif defined(__APPLE__) || defined(__FreeBSD__)
    else if (bytes < 0) stream->_flags |= __SEOF;
    else                stream->_flags |= __SERR;
@@ -482,7 +489,11 @@ size_t XrdPosix_Fwrite(const void *ptr, size_t size, size_t nitems, FILE *stream
    if (bytes > 0 && size) rc = bytes/size;
 #ifndef SUNX86
 #if defined(__linux__) || defined(__GNU__) || (defined(__FreeBSD_kernel__) && defined(__GLIBC__))
+#ifdef _IO_ERR_SEEN
       else stream->_flags |= _IO_ERR_SEEN;
+#else
+      else  __fseterr(stream);
+#endif
 #elif defined(__APPLE__) || defined(__FreeBSD__)
       else stream->_flags |= __SERR;
 #else
